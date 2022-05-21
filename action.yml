@@ -13,18 +13,9 @@ inputs:
   trello_board_id:
     description: 'Id of the board to sync with. Can be found in the URL of the main board: (ex. trello.com/b/{ID}/your-board-name)'
     required: true
-  trello_custom_field_name:
-    description: 'The name of the custom field that you want to update'
-    required: false
-    default: 'Environment'
-  trello_custom_field_value:
-    description: 'The value that you want to set the custom field to if it matches. NOTE: It must be a predefined value or it will break.'
-    required: false
-    default: 'Staging'
-  add_only:
-    description: 'If set to true, the sync will only add the custom field and will not remove it'
-    required: false
-    default: false
+  trello_label_id:
+    description: 'The id of the label to synchronize. Can be found in the trello board JSON: (ex. trello.com/b/{ID}/your-board-name.json)'
+    required: true
 runs:
   using: 'node12'
   main: 'dist/index.js'
