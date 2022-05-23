@@ -5,30 +5,31 @@ exports.getCards = async function getCards() {
   return await trelloFetch(`boards/${core.getInput("trello_board_id")}/cards?attachments=true`)
 }
 
-exports.getCustomField = async function getCustomField() {
-  const customFields = await trelloFetch(`boards/${core.getInput("trello_board_id")}/customFields`)
-  return customFields.find(({ name }) => name === core.getInput("trello_custom_field_name"))
+exports.addLabel = async function addLabel(cardId, labelId) {
+  return await trelloFetch(`cards/${cardId}/idLabels?value=${labelId}`, {
+    method: "POST",
+  })
 }
 
-exports.getCardCustomItemFields = async function getCardCustomItemFields(card) {
-  return await trelloFetch(`cards/${card.id}/customFieldItems`)
-}
-
-exports.updateCustomField = async function updateCustomField({ card, customFieldItem, body }) {
-  return await trelloFetch(`cards/${card.id}/customField/${customFieldItem.idCustomField}/item`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+exports.removeLabel = async function removeLabel(cardId, labelId) {
+  return await trelloFetch(`cards/${cardId}/idLabels/${labelId}`, {
+    method: "DELETE",
   })
 }
 
 async function trelloFetch(path, options = {}) {
+  const defaultOptions = {
+    headers: { "Content-Type": "application/json" },
+  }
+
+  const trelloKey = core.getInput("trello_key")
+  const trelloToken = core.getInput("trello_token")
+
   const hasQuery = path.includes("?")
-  const authQueryParamsConnector = hasQuery ? "&" : "?"
-  const authQueryParams = `key=${core.getInput("trello_key")}&token=${core.getInput(
-    "trello_token",
-  )}`
-  const url = `https://api.trello.com/1/${path}${authQueryParamsConnector}${authQueryParams}`
-  const response = await fetch(url, options)
+  const joinChar = hasQuery ? "&" : "?"
+  const queryParams = `${joinChar}key=${trelloKey}&token=${trelloToken}`
+
+  const url = `https://api.trello.com/1/${path}${queryParams}`
+  const response = await fetch(url, { ...defaultOptions, ...options })
   return response.json()
 }

@@ -1,85 +1,38 @@
 const core = require("@actions/core")
 const github = require("@actions/github")
-const {
-  getCards,
-  getCustomField,
-  getCardCustomItemFields,
-  updateCustomField,
-} = require("./trelloRequests")
+const { getCards, addLabel, removeLabel } = require("./trelloRequests")
 const { getHeadCommitShaForPR, getCommitsFromMaster } = require("./githubRequests")
 const { log } = require("./utils/log")
 
-async function run() {
+;(async function () {
   try {
     const commits = await findCommitsFromShaToMaster()
-    const stagingCustomFieldItem = await getStagingCustomFieldItem()
-    const cardsWithPRAttached = await getCardsWithPRAttached()
-
-    cardsWithPRAttached.forEach(async (card) => {
-      setCardCustomFieldValue({
-        card,
-        commits,
-        customFieldItem: stagingCustomFieldItem,
-      })
+    const cards = await getCards().filter(hasPullRequestAttachments)
+    cards.forEach(async (card) => {
+      setCardLabel(card, commits)
     })
   } catch (error) {
     log(error)
     core.setFailed(error.message)
   }
-}
+})()
 
-run()
-
-async function getCardsWithPRAttached() {
-  const cards = await getCards()
-  return cards.filter((card) => card.attachments.some(isPullRequestAttachment))
-}
-
-async function getStagingCustomFieldItem() {
-  const customField = await getCustomField()
-  return customField.options.find(
-    (option) => Object.values(option.value)[0] === core.getInput("trello_custom_field_value"),
-  )
-}
-
-async function setCardCustomFieldValue({ card, commits, customFieldItem }) {
+async function setCardLabel(card, commits) {
+  const labelId = core.getInput("trello_label_id")
   const attachments = card.attachments.filter(isPullRequestAttachment)
-  const attachment = attachments[0] // TODO: support multiple PR attachments
-  const prId = attachment.url.split("/").pop()
-  const headCommitSha = await getHeadCommitShaForPR(prId)
-  const attachmentIsAMatchedPR = commits.some((commit) => commit.sha === headCommitSha)
+  const shoulAddLabel = attachments.every(async (attachment) => {
+    const prId = attachment.url.split("/").pop()
+    const headCommitSha = await getHeadCommitShaForPR(prId)
+    return commits.some((commit) => commit.sha === headCommitSha)
+  })
 
-  if (attachmentIsAMatchedPR) {
-    return await addCustomFieldItemToCard({ card, customFieldItem })
+  if (shoulAddLabel) {
+    log(`Adding label to ${card.name}`)
+    addLabel(card.id, labelId)
   } else {
-    return await removeCustomFieldItemFromCard({ card, customFieldItem })
+    log(`Removing label from ${card.name}`)
+    removeLabel(card.id, labelId)
   }
-}
-
-async function addCustomFieldItemToCard({ card, customFieldItem }) {
-  const customFieldItems = await getCardCustomItemFields(card)
-  const alreadyHasEnvironmentSet = customFieldItems.some(
-    ({ idCustomField }) => customFieldItem.idCustomField === idCustomField,
-  )
-  if (alreadyHasEnvironmentSet) return
-
-  const body = { idValue: customFieldItem.id }
-  log(`adding ${card.name}`)
-  return await updateCustomField({ card, customFieldItem, body })
-}
-
-async function removeCustomFieldItemFromCard({ card, customFieldItem }) {
-  if (core.getInput("add_only") !== "false") return
-
-  const customFieldItems = await getCardCustomItemFields(card)
-  const customFieldItemSetToCustomFieldItemValue = customFieldItems.some(
-    ({ idValue }) => idValue === customFieldItem.id,
-  )
-  if (!customFieldItemSetToCustomFieldItemValue) return
-
-  const body = { idValue: "", value: "" }
-  log(`removing ${card.name}`)
-  return await updateCustomField({ card, customFieldItem, body })
 }
 
 // we only get 250 per page so we will iterate over pages to grab more if there is more
@@ -94,6 +47,10 @@ async function findCommitsFromShaToMaster() {
   }
 
   return allCommits
+}
+
+function hasPullRequestAttachments(card) {
+  return card.attachments.some(isPullRequestAttachment)
 }
 
 function isPullRequestAttachment(attachment) {
