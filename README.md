@@ -1,11 +1,11 @@
-# Trello Custom Field Sync Github Action
+# Trello Label Sync Github Action
 
-Trello Custom Field Sync Github Action helps to keep your Trello board up-to-date with what is happening on github.  Syncing will add (and remove unless settings tell otherwise) a custom field if there is not already one set.
+Trello Label Sync Github Action helps to keep your Trello cards in sync with your Github pull requests. Syncing will add or remove a label based on the merge status of a given pull request and your defined branch.
 
 ## Prerequisites
 
 - You must attach PRs to your trello cards to make this function correctly
-- You must have a custom field added to your cards
+- You must have defined the label you want to sync
 - Github actions must be enabled for your github repository.
 
 ## Basic Usage
@@ -26,7 +26,7 @@ jobs:
   trello_label_sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: planningcenter/trello-custom-field-sync-action@v0.1.0
+      - uses: kevinthompson/trello-label-sync-action@v0.1.0
         with:
           trello_key: ${{ secrets.TRELLO_KEY }}
           trello_token: ${{ secrets.TRELLO_TOKEN }}
@@ -42,7 +42,7 @@ To use these, add them to the list of `with:` key/value pairs.
 | key | default | description |
 |---| ---| ---|
 |__`trello_board_id`(required)__ | none | Id of the board to sync with. Can be found in the URL of the main board: (ex. `trello.com/b/{ID}/your-board-name`) |
-|__`trello_label_id`__ | none | Id of the board to sync with. Can be found in the JSON of the main board: (ex. `trello.com/b/{ID}/your-board-name.json`) |
+|__`trello_label_id`(required)__ | none | Id of the board to sync with. Can be found in the JSON of the main board: (ex. `trello.com/b/{ID}/your-board-name.json`) |
 
 ## Setting Secrets
 
