@@ -1,10 +1,8 @@
 const core = require("@actions/core")
 const github = require("@actions/github")
-const { getCards, addLabel, removeLabel } = require("./trelloRequests")
-const { getHeadCommitShaForPR, getCommitsFromMaster } = require("./githubRequests")
-const { log } = require("./utils/log")
+const fetch = require("node-fetch")
 
-;(async function () {
+async function run() {
   try {
     const commits = await findCommitsFromShaToMaster()
     const cards = await getCards().filter(hasPullRequestAttachments)
@@ -12,25 +10,26 @@ const { log } = require("./utils/log")
       setCardLabel(card, commits)
     })
   } catch (error) {
-    log(error)
     core.setFailed(error.message)
   }
-})()
+}
+
+run()
 
 async function setCardLabel(card, commits) {
   const labelId = core.getInput("trello_label_id")
   const attachments = card.attachments.filter(isPullRequestAttachment)
-  const shoulAddLabel = attachments.every(async (attachment) => {
+  const shouldAddLabel = attachments.every(async (attachment) => {
     const prId = attachment.url.split("/").pop()
     const headCommitSha = await getHeadCommitShaForPR(prId)
     return commits.some((commit) => commit.sha === headCommitSha)
   })
 
-  if (shoulAddLabel) {
-    log(`Adding label to ${card.name}`)
+  if (shouldAddLabel) {
+    core.info(`Adding label to ${card.name}`)
     addLabel(card.id, labelId)
   } else {
-    log(`Removing label from ${card.name}`)
+    core.info(`Removing label from ${card.name}`)
     removeLabel(card.id, labelId)
   }
 }
@@ -57,4 +56,65 @@ function isPullRequestAttachment(attachment) {
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
   return attachment.url.includes(`github.com/${owner}/${repo}/pull`)
+}
+
+async function getCards() {
+  return await trelloFetch(`boards/${core.getInput("trello_board_id")}/cards?attachments=true`)
+}
+
+async function addLabel(cardId, labelId) {
+  return await trelloFetch(`cards/${cardId}/idLabels?value=${labelId}`, {
+    method: "POST",
+  })
+}
+
+async function removeLabel(cardId, labelId) {
+  return await trelloFetch(`cards/${cardId}/idLabels/${labelId}`, {
+    method: "DELETE",
+  })
+}
+
+async function trelloFetch(path, options = {}) {
+  const defaultOptions = {
+    headers: { "Content-Type": "application/json" },
+  }
+
+  const trelloKey = core.getInput("trello_key")
+  const trelloToken = core.getInput("trello_token")
+
+  const hasQuery = path.includes("?")
+  const joinChar = hasQuery ? "&" : "?"
+  const queryParams = `${joinChar}key=${trelloKey}&token=${trelloToken}`
+
+  const url = `https://api.trello.com/1/${path}${queryParams}`
+  const response = await fetch(url, { ...defaultOptions, ...options })
+  return response.json()
+}
+
+async function getHeadCommitShaForPR(id) {
+  const owner = github.context.repo.owner
+  const repo = github.context.repo.repo
+  const {
+    data: {
+      head: { sha },
+    },
+  } = await getOctokit().request(`GET /repos/${owner}/${repo}/pulls/${id}`)
+  return sha
+}
+
+async function getCommitsFromMaster(options = {}) {
+  const owner = github.context.repo.owner
+  const repo = github.context.repo.repo
+  const currentSha = github.context.sha
+  const basehead = `master...${currentSha}`
+  const { data } = await getOctokit().request(
+    `GET /repos/${owner}/${repo}/compare/${basehead}`,
+    options,
+  )
+  return data
+}
+
+function getOctokit() {
+  const githubToken = core.getInput("github_token")
+  return github.getOctokit(githubToken)
 }
