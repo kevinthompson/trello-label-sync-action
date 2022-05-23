@@ -1,6 +1,6 @@
 {
   "name": "trello-label-sync-action",
-  "version": "0.2.5",
+  "version": "0.1.0",
   "description": "A github action to sync trello labels with github branches and pull requests",
   "main": "index.js",
   "scripts": {

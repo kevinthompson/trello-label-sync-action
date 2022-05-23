@@ -26,7 +26,7 @@ jobs:
   trello_label_sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: kevinthompson/trello-label-sync-action@v0.2.5
+      - uses: kevinthompson/trello-label-sync-action@v0.1.0
         with:
           trello_key: ${{ secrets.TRELLO_KEY }}
           trello_token: ${{ secrets.TRELLO_TOKEN }}
